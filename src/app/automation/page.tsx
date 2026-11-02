@@ -17,13 +17,46 @@ import {
 export default function AutomationPage() {
   const { workflows, toggleWorkflow } = useApp();
   const [testingId, setTestingId] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<{ id: string; success: boolean; details: string } | null>(null);
 
-  const handleTestTrigger = (id: string) => {
+  const handleTestTrigger = async (id: string, webhookUrl: string, triggerEvent: string) => {
     setTestingId(id);
-    setTimeout(() => {
+    setTestResult(null);
+
+    try {
+      const res = await fetch("/api/webhook/dispatch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          webhookUrl,
+          event: triggerEvent,
+          payload: { triggeredBy: "Founder Yuvraj Soni", simulation: true },
+        }),
+      });
+
+      const data = await res.json();
+      if (data.delivered && data.success) {
+        setTestResult({
+          id,
+          success: true,
+          details: `HTTP ${data.status} ${data.statusText}: Webhook payload delivered successfully.`,
+        });
+      } else {
+        setTestResult({
+          id,
+          success: false,
+          details: data.details || `Delivery failed: Target URL is currently unreachable.`,
+        });
+      }
+    } catch (err: any) {
+      setTestResult({
+        id,
+        success: false,
+        details: err.message || "Failed to trigger dispatch route.",
+      });
+    } finally {
       setTestingId(null);
-      alert("Webhook successfully simulated: 200 OK received from n8n event dispatcher.");
-    }, 1200);
+    }
   };
 
   return (
@@ -45,7 +78,7 @@ export default function AutomationPage() {
           <span className="text-slate-400 text-[10px] uppercase font-mono block">Infrastructure</span>
           <span className="text-emerald-400 font-bold flex items-center space-x-1 font-mono">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>n8n Webhook Node Connected</span>
+            <span>Real HTTP Dispatcher Active</span>
           </span>
         </div>
       </div>
@@ -85,17 +118,30 @@ export default function AutomationPage() {
                   Last Run: {wf.lastExecutedAt ? formatDate(wf.lastExecutedAt) : "Never"}
                 </span>
               </div>
+
+              {/* Real Test Dispatch Feedback */}
+              {testResult && testResult.id === wf.id && (
+                <div
+                  className={`mt-2 p-2.5 rounded-lg border text-xs font-mono ${
+                    testResult.success
+                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                      : "bg-red-500/10 border-red-500/30 text-red-300"
+                  }`}
+                >
+                  <strong>Actual Dispatch Result:</strong> {testResult.details}
+                </div>
+              )}
             </div>
 
             {/* Actions */}
             <div className="flex items-center space-x-2.5 self-end sm:self-center">
               <button
-                onClick={() => handleTestTrigger(wf.id)}
+                onClick={() => handleTestTrigger(wf.id, wf.webhookUrl, wf.triggerEvent)}
                 disabled={testingId === wf.id}
                 className="px-3 py-1.5 rounded-lg bg-[#1e293b] hover:bg-[#283548] text-slate-200 text-xs font-semibold flex items-center space-x-1.5 transition-all"
               >
                 <Play className="w-3.5 h-3.5 text-amber-400" />
-                <span>{testingId === wf.id ? "Firing..." : "Test Webhook"}</span>
+                <span>{testingId === wf.id ? "Dispatching HTTP..." : "Test Webhook"}</span>
               </button>
 
               <button

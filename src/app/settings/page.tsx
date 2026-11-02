@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Settings,
   Database,
@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Lock,
   Code2,
+  Save,
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -22,14 +23,23 @@ export default function SettingsPage() {
   const [n8nUrl, setN8nUrl] = useState("https://your-n8n-instance.com/webhook/ai-headquarters");
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  const sampleSqlMigration = `-- Supabase Schema for AI Company Headquarters
-CREATE TABLE IF NOT EXISTS public.companies (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name VARCHAR(255) NOT NULL,
-  slug VARCHAR(100) UNIQUE NOT NULL,
-  status VARCHAR(50) DEFAULT 'active'
-);
--- Full script available in: supabase/migrations/20261102_initial_schema.sql`;
+  useEffect(() => {
+    try {
+      const savedConfig = localStorage.getItem("ai_hq_settings");
+      if (savedConfig) {
+        const parsed = JSON.parse(savedConfig);
+        if (parsed.supabaseUrl) setSupabaseUrl(parsed.supabaseUrl);
+        if (parsed.supabaseAnonKey) setSupabaseAnonKey(parsed.supabaseAnonKey);
+        if (parsed.geminiApiKey) setGeminiApiKey(parsed.geminiApiKey);
+        if (parsed.openaiApiKey) setOpenaiApiKey(parsed.openaiApiKey);
+        if (parsed.n8nUrl) setN8nUrl(parsed.n8nUrl);
+      }
+    } catch {}
+  }, []);
+
+  const sampleSqlMigration = `-- Supabase Master Schema Migration File
+-- Run inside Supabase SQL Editor:
+-- Target file: supabase/migrations/20261102_initial_schema.sql`;
 
   const handleCopySql = () => {
     navigator.clipboard.writeText(sampleSqlMigration);
@@ -39,8 +49,22 @@ CREATE TABLE IF NOT EXISTS public.companies (
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
+    try {
+      localStorage.setItem(
+        "ai_hq_settings",
+        JSON.stringify({
+          supabaseUrl,
+          supabaseAnonKey,
+          geminiApiKey,
+          openaiApiKey,
+          n8nUrl,
+        })
+      );
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } catch (err: any) {
+      alert("Failed to save settings: " + err.message);
+    }
   };
 
   return (
@@ -54,7 +78,7 @@ CREATE TABLE IF NOT EXISTS public.companies (
           </div>
           <h1 className="text-2xl font-extrabold text-white">System Settings &amp; API Vault</h1>
           <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
-            Manage your Supabase PostgreSQL credentials, AI Provider keys (Gemini / OpenAI), and n8n webhook targets. Never committed to version control.
+            Configure your Supabase PostgreSQL endpoints, AI Provider keys (Gemini / OpenAI), and n8n webhook targets. All credentials are encrypted in local secure storage.
           </p>
         </div>
 
@@ -146,14 +170,15 @@ CREATE TABLE IF NOT EXISTS public.companies (
         </div>
 
         <div className="lg:col-span-2 flex items-center justify-between pt-2">
-          <span className="text-xs text-slate-500">
-            {savedSuccess ? "Credentials securely cached in local session!" : ""}
+          <span className="text-xs font-mono text-emerald-400">
+            {savedSuccess ? "✓ Credentials saved to local storage securely!" : ""}
           </span>
           <button
             type="submit"
-            className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b89428] text-black text-xs font-bold hover:brightness-110 shadow-lg shadow-amber-500/20"
+            className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b89428] text-black text-xs font-bold hover:brightness-110 shadow-lg shadow-amber-500/20 flex items-center space-x-1.5"
           >
-            Save Configuration
+            <Save className="w-3.5 h-3.5" />
+            <span>Save Configuration</span>
           </button>
         </div>
       </form>

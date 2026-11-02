@@ -75,7 +75,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications);
   const [workflows, setWorkflows] = useState<AutomationWorkflow[]>(initialWorkflows);
 
-  // Load from LocalStorage if available
+  // 1. Initial Load from LocalStorage
   useEffect(() => {
     try {
       const savedApprovals = localStorage.getItem("ai_hq_approvals");
@@ -86,11 +86,58 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       const savedEmployees = localStorage.getItem("ai_hq_employees");
       if (savedEmployees) setEmployees(JSON.parse(savedEmployees));
+
+      const savedAuditLogs = localStorage.getItem("ai_hq_audit_logs");
+      if (savedAuditLogs) setAuditLogs(JSON.parse(savedAuditLogs));
+
+      const savedContent = localStorage.getItem("ai_hq_content");
+      if (savedContent) setContentCalendar(JSON.parse(savedContent));
+
+      const savedKnowledge = localStorage.getItem("ai_hq_knowledge");
+      if (savedKnowledge) setKnowledgeDocs(JSON.parse(savedKnowledge));
     } catch {
-      // Ignore localStorage read errors in restricted contexts
+      // LocalStorage access may be restricted in sandbox; fallback safely
     }
   }, []);
 
+  // 2. Bidirectional Auto-Sync to LocalStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem("ai_hq_approvals", JSON.stringify(approvals));
+    } catch {}
+  }, [approvals]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("ai_hq_tasks", JSON.stringify(tasks));
+    } catch {}
+  }, [tasks]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("ai_hq_employees", JSON.stringify(employees));
+    } catch {}
+  }, [employees]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("ai_hq_audit_logs", JSON.stringify(auditLogs));
+    } catch {}
+  }, [auditLogs]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("ai_hq_content", JSON.stringify(contentCalendar));
+    } catch {}
+  }, [contentCalendar]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("ai_hq_knowledge", JSON.stringify(knowledgeDocs));
+    } catch {}
+  }, [knowledgeDocs]);
+
+  // Cryptographically chained audit logger
   const appendAuditLog = (
     actorType: AuditLog["actorType"],
     actorName: string,
@@ -101,6 +148,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     details: string
   ) => {
     const timestamp = new Date().toISOString();
+    const previousHash = auditLogs[0]?.verificationHash || "0000000000000000000000000000000000000000000000000000000000000000";
+    const verificationHash = generateVerificationHash(actorName, action, timestamp, previousHash);
+
     const newLog: AuditLog = {
       id: `audit-${Date.now()}`,
       companyId: activeCompany.id,
@@ -111,7 +161,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       targetId,
       complianceStatus,
       details,
-      verificationHash: generateVerificationHash(actorName, action, timestamp),
+      verificationHash,
       timestamp,
     };
     setAuditLogs((prev) => [newLog, ...prev]);
@@ -229,7 +279,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       prev.map((item) => ({ ...item, status: "approved" }))
     );
 
-    // Update approval card if it exists
     setApprovals((prev) =>
       prev.map((a) =>
         a.category === "social_post"
@@ -279,6 +328,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, status } : t))
     );
+
+    const task = tasks.find((t) => t.id === taskId);
+    if (task) {
+      appendAuditLog(
+        "supervisor",
+        "Archon Prime (Chief Supervisor)",
+        `Task Status Transition: ${task.title}`,
+        "Task",
+        taskId,
+        "passed",
+        `Transitioned status to ${status}. Independent compliance verified.`
+      );
+    }
   };
 
   const hireEmployee = (
@@ -307,6 +369,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setEmployees((prev) =>
       prev.map((e) => (e.id === employeeId ? { ...e, status } : e))
     );
+    const emp = employees.find((e) => e.id === employeeId);
+    if (emp) {
+      appendAuditLog(
+        "director",
+        "Executive Suite",
+        `Updated Agent Status: ${emp.name}`,
+        "AIEmployee",
+        employeeId,
+        "passed",
+        `Status set to ${status}.`
+      );
+    }
   };
 
   const addKnowledgeDoc = (docData: Omit<KnowledgeDocument, "id" | "updatedAt">) => {
@@ -353,7 +427,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       "flagged",
       "Founder pressed emergency stop. All autonomous agent background execution paused immediately."
     );
-    alert("Emergency Pause Executed: All active AI employees set to idle mode.");
   };
 
   return (

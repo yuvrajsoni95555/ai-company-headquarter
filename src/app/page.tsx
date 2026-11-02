@@ -21,6 +21,7 @@ import {
   Lock,
   Layers,
   Send,
+  Loader2,
 } from "lucide-react";
 
 export default function FounderControlRoom() {
@@ -39,19 +40,41 @@ export default function FounderControlRoom() {
 
   const [selectedApproval, setSelectedApproval] = useState<Approval | null>(null);
   const [directiveText, setDirectiveText] = useState("");
-  const [directiveSent, setDirectiveSent] = useState(false);
+  const [isProcessingDirective, setIsProcessingDirective] = useState(false);
+  const [ceoFeedback, setCeoFeedback] = useState<string | null>(null);
 
   const pendingApprovals = approvals.filter((a) => a.status === "pending");
-  const ceoAgent = employees.find((e) => e.tier === "ceo");
 
-  const handleSendDirective = (e: React.FormEvent) => {
+  const handleSendDirective = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!directiveText.trim()) return;
-    setDirectiveSent(true);
-    setTimeout(() => {
+
+    setIsProcessingDirective(true);
+    setCeoFeedback(null);
+
+    try {
+      const res = await fetch("/api/ceo/directive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ directive: directiveText.trim() }),
+      });
+
+      const data = await res.json();
+      if (data.ceoSynthesis) {
+        setCeoFeedback(
+          data.ceoSynthesis.executiveDirective ||
+          data.ceoSynthesis.executiveSummary ||
+          data.message
+        );
+      } else {
+        setCeoFeedback(data.message || "Directive received and logged in executive queue.");
+      }
       setDirectiveText("");
-      setDirectiveSent(false);
-    }, 3000);
+    } catch (err: any) {
+      setCeoFeedback("Executive Direct Wire communication error: " + err.message);
+    } finally {
+      setIsProcessingDirective(false);
+    }
   };
 
   return (
@@ -169,6 +192,16 @@ export default function FounderControlRoom() {
               <p>
                 <strong className="text-slate-100 font-semibold">Founder Soni:</strong> All 23 departments are operating within standard parameters. Marketing has submitted the 7-day social pipeline for your authorization. Competitor intelligence detected that Tiffany is backordered on emerald-cut solitaires—our Photography and Sales teams have prepared a targeted counter-campaign.
               </p>
+
+              {ceoFeedback && (
+                <div className="mt-2 p-3 rounded-lg bg-sky-950/30 border border-sky-500/30 text-sky-200">
+                  <strong className="block text-[10px] font-mono uppercase text-sky-400 mb-1">
+                    Direct Wire Live Response:
+                  </strong>
+                  {ceoFeedback}
+                </div>
+              )}
+
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t border-[#1e293b] text-[11px]">
                 <div>
                   <span className="text-slate-500 block">Q4 Target Focus</span>
@@ -183,7 +216,7 @@ export default function FounderControlRoom() {
                 <div>
                   <span className="text-slate-500 block">Supervision Audit Hash</span>
                   <span className="font-mono text-[10px] text-amber-400/90 truncate block">
-                    0x7a89f92...bc14
+                    {auditLogs[0]?.verificationHash?.slice(0, 16)}...
                   </span>
                 </div>
               </div>
@@ -196,15 +229,26 @@ export default function FounderControlRoom() {
               type="text"
               value={directiveText}
               onChange={(e) => setDirectiveText(e.target.value)}
+              disabled={isProcessingDirective}
               placeholder="Broadcast Founder directive to CEO AI and all 23 Department Directors..."
-              className="flex-1 text-xs px-3.5 py-2.5 rounded-xl bg-[#090d16] border border-[#1e293b] focus:border-[#d4af37] text-slate-100 outline-none placeholder:text-slate-600 transition-all"
+              className="flex-1 text-xs px-3.5 py-2.5 rounded-xl bg-[#090d16] border border-[#1e293b] focus:border-[#d4af37] text-slate-100 outline-none placeholder:text-slate-600 transition-all disabled:opacity-50"
             />
             <button
               type="submit"
-              className="px-4 py-2.5 rounded-xl bg-[#1e293b] hover:bg-[#d4af37] hover:text-black text-slate-200 text-xs font-bold transition-all flex items-center space-x-1.5"
+              disabled={isProcessingDirective}
+              className="px-4 py-2.5 rounded-xl bg-[#1e293b] hover:bg-[#d4af37] hover:text-black text-slate-200 text-xs font-bold transition-all flex items-center space-x-1.5 disabled:opacity-50"
             >
-              <span>{directiveSent ? "Dispatched!" : "Dispatch"}</span>
-              <Send className="w-3.5 h-3.5" />
+              {isProcessingDirective ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Routing...</span>
+                </>
+              ) : (
+                <>
+                  <span>Dispatch</span>
+                  <Send className="w-3.5 h-3.5" />
+                </>
+              )}
             </button>
           </form>
         </div>
@@ -311,8 +355,8 @@ export default function FounderControlRoom() {
 
               <div className="flex items-center space-x-3 text-[10px] text-slate-500 font-mono self-end sm:self-center">
                 <span>{formatDate(log.timestamp)}</span>
-                <span className="px-1.5 py-0.5 rounded bg-[#1e293b] text-amber-400/80">
-                  {log.verificationHash.slice(0, 14)}...
+                <span className="px-1.5 py-0.5 rounded bg-[#1e293b] text-amber-400/80 font-mono">
+                  {log.verificationHash.slice(0, 16)}...
                 </span>
               </div>
             </div>

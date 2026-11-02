@@ -12,12 +12,14 @@ import {
   Users,
   Sparkles,
   Lock,
+  Loader2,
 } from "lucide-react";
 
 export default function CommunicationsPage() {
   const { employees } = useApp();
   const [selectedChannel, setSelectedChannel] = useState("general");
   const [inputMessage, setInputMessage] = useState("");
+  const [isSending, setIsSending] = useState(false);
 
   const [messages, setMessages] = useState([
     {
@@ -59,24 +61,60 @@ export default function CommunicationsPage() {
     { id: "governance", label: "Supervision & Audit", icon: ShieldAlert },
   ];
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim()) return;
+    if (!inputMessage.trim() || isSending) return;
 
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `msg-${Date.now()}`,
-        channel: selectedChannel,
-        sender: "Founder Yuvraj Soni",
-        role: "Supreme Owner & Founder",
-        avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-        content: inputMessage.trim(),
-        timestamp: new Date().toISOString(),
-        isFounder: true,
-      },
-    ]);
+    const userMsg = inputMessage.trim();
     setInputMessage("");
+
+    // Append Founder message immediately
+    const founderMsg = {
+      id: `msg-${Date.now()}`,
+      channel: selectedChannel,
+      sender: "Founder Yuvraj Soni",
+      role: "Supreme Owner & Founder",
+      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+      content: userMsg,
+      timestamp: new Date().toISOString(),
+      isFounder: true,
+    };
+
+    setMessages((prev) => [...prev, founderMsg]);
+    setIsSending(true);
+
+    try {
+      const res = await fetch("/api/agents/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channel: selectedChannel,
+          message: userMsg,
+          targetAgent: selectedChannel === "creative" ? "Julian Sterling (Photography Director)" : "Aegis Prime (CEO AI)",
+        }),
+      });
+
+      const data = await res.json();
+      if (data.reply) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg-${Date.now()}-reply`,
+            channel: selectedChannel,
+            sender: data.reply.sender,
+            role: data.reply.role,
+            avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
+            content: data.reply.content,
+            timestamp: new Date().toISOString(),
+            isFounder: false,
+          },
+        ]);
+      }
+    } catch {
+      // Offline fallback
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const filteredMessages = messages.filter(
@@ -168,6 +206,12 @@ export default function CommunicationsPage() {
                 <p className="leading-relaxed text-[11px] font-sans">{msg.content}</p>
               </div>
             ))}
+            {isSending && (
+              <div className="flex items-center space-x-2 text-xs text-sky-400 p-2 font-mono">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Agent parsing transmission and formulating response...</span>
+              </div>
+            )}
           </div>
 
           {/* Input Bar */}
@@ -179,12 +223,14 @@ export default function CommunicationsPage() {
               type="text"
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
+              disabled={isSending}
               placeholder={`Send Founder directive to #${selectedChannel} channel...`}
-              className="flex-1 text-xs px-4 py-2.5 rounded-xl bg-[#0f172a] border border-[#1e293b] focus:border-[#d4af37] text-slate-100 outline-none placeholder:text-slate-600 transition-all"
+              className="flex-1 text-xs px-4 py-2.5 rounded-xl bg-[#0f172a] border border-[#1e293b] focus:border-[#d4af37] text-slate-100 outline-none placeholder:text-slate-600 transition-all disabled:opacity-50"
             />
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b89428] text-black text-xs font-bold hover:brightness-110 flex items-center space-x-1.5 shadow-md transition-all"
+              disabled={isSending}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b89428] text-black text-xs font-bold hover:brightness-110 flex items-center space-x-1.5 shadow-md transition-all disabled:opacity-50"
             >
               <span>Transmit</span>
               <Send className="w-3.5 h-3.5" />
