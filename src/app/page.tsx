@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useApp } from "@/lib/store";
 import { MetricCard } from "@/components/layout/MetricCard";
 import { DepartmentPulse } from "@/components/founder/DepartmentPulse";
+import { AutonomousMissionConsole } from "@/components/founder/AutonomousMissionConsole";
 import { ApprovalModal } from "@/components/approvals/ApprovalModal";
 import { Approval } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -305,6 +306,9 @@ export default function FounderControlRoom() {
           </div>
         </div>
       </div>
+
+      {/* Live Autonomous AI Workforce Mission Console */}
+      <AutonomousMissionConsole />
 
       {/* 23 Departments Pulse */}
       <DepartmentPulse departments={departments} />
