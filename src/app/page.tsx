@@ -25,6 +25,8 @@ import {
   Loader2,
 } from "lucide-react";
 
+import { getAIClientHeaders } from "@/lib/clientAI";
+
 export default function FounderControlRoom() {
   const {
     activeCompany,
@@ -56,7 +58,7 @@ export default function FounderControlRoom() {
     try {
       const res = await fetch("/api/ceo/directive", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAIClientHeaders(),
         body: JSON.stringify({ directive: directiveText.trim() }),
       });
 

@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { getAIClientHeaders } from "@/lib/clientAI";
+
 export function AutonomousMissionConsole() {
   const { createTask, auditLogs } = useApp();
   const [objective, setObjective] = useState("");
@@ -44,13 +46,7 @@ export function AutonomousMissionConsole() {
     setExecutionResults([]);
 
     try {
-      // Get stored key from localStorage if available
-      const storedSettings = localStorage.getItem("ai_hq_settings");
-      const parsedSettings = storedSettings ? JSON.parse(storedSettings) : {};
-      const geminiKey = parsedSettings.geminiApiKey || tempApiKey;
-
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (geminiKey) headers["x-gemini-api-key"] = geminiKey;
+      const headers = getAIClientHeaders(tempApiKey ? { "x-gemini-api-key": tempApiKey.trim() } : {});
 
       // 1. Orchestrate with CEO AI
       const orchestrateRes = await fetch("/api/orchestrate", {

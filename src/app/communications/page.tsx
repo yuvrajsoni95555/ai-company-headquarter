@@ -15,6 +15,8 @@ import {
   Loader2,
 } from "lucide-react";
 
+import { getAIClientHeaders } from "@/lib/clientAI";
+
 export default function CommunicationsPage() {
   const { employees } = useApp();
   const [selectedChannel, setSelectedChannel] = useState("general");
@@ -86,7 +88,7 @@ export default function CommunicationsPage() {
     try {
       const res = await fetch("/api/agents/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAIClientHeaders(),
         body: JSON.stringify({
           channel: selectedChannel,
           message: userMsg,
